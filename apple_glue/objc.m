@@ -625,9 +625,157 @@ typedef struct
     MtTextureSwizzle alpha;
 } MtTextureSwizzleChannels;
 
+typedef enum MtCPUCacheMode {
+  MtCPUCacheModeDefaultCache  = 0,
+  MtCPUCacheModeWriteCombined = 1
+} MtCPUCacheMode;
+
+typedef enum MtHazardTrackingMode {
+  MtHazardTrackingModeDefault   = 0,
+  MtHazardTrackingModeUntracked = 1,
+  MtHazardTrackingModeTracked   = 2
+} MtHazardTrackingMode;
+
+typedef enum MtStorageMode {
+  MtStorageModeShared     = 0,
+  MtStorageModeManaged    = 1,
+  MtStorageModePrivate    = 2,
+  MtStorageModeMemoryless = 3
+} MtStorageMode;
+
+typedef enum MtResourceOptions {
+  MtResourceCPUCacheModeDefaultCache    = MtCPUCacheModeDefaultCache,
+  MtResourceCPUCacheModeWriteCombined   = MtCPUCacheModeWriteCombined,
+  
+  MtResourceStorageModeShared           = MtStorageModeShared           << 4,
+  MtResourceStorageModeManaged          = MtStorageModeManaged          << 4,
+  MtResourceStorageModePrivate          = MtStorageModePrivate          << 4,
+  MtResourceStorageModeMemoryless       = MtStorageModeMemoryless       << 4,
+  
+  MtResourceHazardTrackingModeDefault   = MtHazardTrackingModeDefault   << 8,
+  MtResourceHazardTrackingModeUntracked = MtHazardTrackingModeUntracked << 8,
+  MtResourceHazardTrackingModeTracked   = MtHazardTrackingModeTracked   << 8
+} MtResourceOptions;
+
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
+
+MT_HIDE MT_INLINE
+NSString* mtNSString(const char* str)
+{
+    return [NSString stringWithCString: str
+            encoding: NSUTF8StringEncoding];
+}
+
+MT_HIDE
+MT_INLINE
+const char*
+Cstring(NSString* str) {
+  return [str cStringUsingEncoding:NSUTF8StringEncoding];
+}
+
+MT_HIDE
+MT_INLINE
+MTLSize
+mtMTLSize(MtSize size) {
+	return MTLSizeMake(size.width, size.height, size.depth);
+}
+
+MT_HIDE
+MT_INLINE
+MtSize
+mtSize(MTLSize size) {
+	MtSize sz = {size.width, size.height, size.depth};
+	return sz;
+}
+
+MT_HIDE
+MT_INLINE
+MTLOrigin
+mtMTLOrigin(MtOrigin orig) {
+	return MTLOriginMake(orig.x, orig.y, orig.z);
+}
+
+MT_HIDE
+MT_INLINE
+MtOrigin
+mtOrigin(MTLOrigin orig) {
+	MtOrigin o = {orig.x, orig.y, orig.z};
+	return o;
+}
+
+MT_HIDE
+MT_INLINE
+MTLSizeAndAlign
+mtMTLSizeAndAlign(MtSizeAndAlign s) {
+	MTLSizeAndAlign o = {s.size, s.align};
+	return o;
+}
+
+MT_HIDE
+MT_INLINE
+MtSizeAndAlign
+mtSizeAndAlign(MTLSizeAndAlign s) {
+	MtSizeAndAlign o = {s.size, s.align};
+	return o;
+}
+
+
+MT_HIDE
+MT_INLINE
+NSRange
+mtNSRange(NsRange range) {
+	return NSMakeRange(range.location, range.length);
+}
+
+MT_HIDE
+MT_INLINE
+NsRange
+mtRange(NSRange range) {
+	NsRange r = {range.location, range.length};
+	return r;
+}
+
+MT_HIDE
+MT_INLINE
+const char*
+CstringFromDict(NSDictionary<NSErrorUserInfoKey, id> *dict) {
+	return Cstring([NSString stringWithFormat:@"Dictionary: %@", dict]);
+}
+
+MT_HIDE
+MT_INLINE
+MTLRegion
+mtMTLRegion(MtRegion region) {
+	MTLRegion reg = {mtMTLOrigin(region.origin), mtMTLSize(region.size)};
+	return reg;
+}
+
+MT_HIDE
+MT_INLINE
+MtRegion
+mtRegion(MtRegion region) {
+	MtRegion reg = {region.origin, region.size};
+	return reg;
+}
+
+MT_HIDE
+MT_INLINE
+MtIndirectCommandBufferExecutionRange
+mtIndirectCommandBufferExecutionRange(MtIndirectCommandBufferExecutionRange range) {
+  MtIndirectCommandBufferExecutionRange icbRange = {range.location, range.length};
+  return icbRange;
+}
+
+MT_HIDE
+MT_INLINE
+MtIndirectCommandBufferExecutionRange
+mtMTLIndirectCommandBufferExecutionRange(MtIndirectCommandBufferExecutionRange range) {
+  MtIndirectCommandBufferExecutionRange icbRange = {range.location, range.length};
+  return icbRange;
+}
+
 
 CF_RETURNS_RETAINED MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0)) MT_EXPORT
 MtCompileOptions* mtl_compile_options_new()
@@ -650,7 +798,7 @@ void mtl_compile_options_set_language_version(MtCompileOptions* compile_options,
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0)) 
 bool mtl_compile_options_get_fast_math_enabled(MtCompileOptions* compile_options)
 {
-    return [(MTLCompileOptions*) (compile_options) fast_math_enabled];
+    return [(MTLCompileOptions*) (compile_options) fastMathEnabled];
 }
 
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0)) 
@@ -678,7 +826,7 @@ bool mtl_device_is_low_power(MtDevice* device)
     return [(id<MTLDevice>) device isLowPower];
 }
 
-MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_macCatalyst(13.0)) MT_API_UNAVAILABLE(mt_ios(8.0)) 
+MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11)) MT_API_UNAVAILABLE(mt_ios) 
 bool mtl_device_is_removable(MtDevice* device)
 {
     return [(id<MTLDevice>) device isRemovable];
@@ -727,7 +875,7 @@ uint32_t mtl_device_get_peer_count(MtDevice* device)
 }
 
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.15)) MT_API_UNAVAILABLE(mt_ios)
-void mtl_device_get_peer_index(MtDevice* device)
+uint32_t mtl_device_get_peer_index(MtDevice* device)
 {
     return [(id<MTLDevice>)device peerIndex];
 }
@@ -741,7 +889,7 @@ bool mtl_device_supports_gpu_family(MtDevice* device, MtGPUFamily family)
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0))
 bool mtl_device_supports_feature_set(MtDevice* device, MtFeatureSet feature_set)
 {
-    return [(id<MTLDevice>)device supportsFeatureSet: (MTLFeatureSet)set];
+    return [(id<MTLDevice>)device supportsFeatureSet: (MTLFeatureSet)feature_set];
 }
 
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.14), mt_ios(12.0))
@@ -755,7 +903,7 @@ MtBuffer* mtl_new_buffer(MtDevice* device, NsUInteger length, MtResourceOptions 
 {
     return [(id<MTLDevice>)device
         newBufferWithLength: length
-        options: (MTLResourceOptions)opts];
+        options: (MTLResourceOptions)options];
 }
 
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0)) CF_RETURNS_RETAINED
@@ -768,11 +916,11 @@ MtBuffer* mtl_new_buffer_from_memory(MtDevice* __restrict device, const void* __
 }
 
 MT_EXPORT MT_API_AVAILABLE(mt_macos(10.11), mt_ios(8.0)) CF_RETURNS_RETAINED
-MtBuffer* mtl_new_buffer_from_memory_no_copy(MtDevice* device, const void* __restrict ptr, NsUInteger len, MtResourceOptions options)
+MtBuffer* mtl_new_buffer_from_memory_no_copy(MtDevice* device, void* __restrict _Nonnull ptr, NsUInteger len, MtResourceOptions options)
 {
     return [(id<MTLDevice>)device newBufferWithBytesNoCopy: ptr 
-                                   					length: length 
-                                  				   options: (MTLResourceOptions)opts 
+                                   					length: len 
+                                  				   options: (MTLResourceOptions)options 
                               				   deallocator: nil];
 }
 
@@ -794,7 +942,7 @@ MtLibrary* mtl_new_library_from_source(MtDevice* device, char* source, MtCompile
     NSError *_err;
     MtLibrary* lib = [(id<MTLDevice>)device
         newLibraryWithSource: mtNSString(source)
-        options: (MTLCompileOptions*)Opts
+        options: (MTLCompileOptions*)options
         error: &_err];
 
     *error = _err;
